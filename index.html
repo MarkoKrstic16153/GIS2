@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+    integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
+    crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
+    integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
+    crossorigin=""></script>
+    <script type="text/javascript" src="https://code.jquery.com/jquery-1.7.1.min.js"></script>
+    <style>
+		html, body {
+			height: 100%;
+			margin: 0;
+		}
+		.leaflet-container {
+			height: 650px;
+			width: 1400px;
+			max-width: 100%;
+			max-height: 100%;
+		}
+	</style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <script type="text/javascript">
+
+    var map = L.map('map').setView([43.3209, 21.8954], 13);
+        L.tileLayer('https://api.maptiler.com/maps/basic/{z}/{x}/{y}.png?key=5l7zynRL91qC3yKajzKP', {
+        attribution: '<a href="https://www.maptiler.com/copyright/" target="_blank">&copy; MapTiler</a> <a href="https://www.openstreetmap.org/copyright" target="_blank">&copy; OpenStreetMap contributors</a>',
+        maxZoom: 18,
+        id: 'mapbox/streets-v11',
+        tileSize: 512,
+        zoomOffset: -1,
+        accessToken: 'your.mapbox.access.token'
+    }).addTo(map);
+
+    var marker = L.marker([43.3209, 21.8954]).addTo(map)
+		.bindPopup('<b>Dobrodosli u Nis!</b><br />Slobodno razgledajte nas grad!.').openPopup();
+
+    var popup = L.popup()
+		.setLatLng([43.3219, 21.8954])
+		.setContent('GIS Projekat2')
+		.openOn(map);
+
+    function onMapClick(e) {
+
+                var sw = map.options.crs.project(map.getBounds().getSouthWest());
+                var ne = map.options.crs.project(map.getBounds().getNorthEast());
+                var BBOX = sw.x + "," + sw.y + "," + ne.x + "," + ne.y;
+                var WIDTH = map.getSize().x;
+                var HEIGHT = map.getSize().y;
+
+                var X = Math.trunc(map.layerPointToContainerPoint(e.layerPoint).x);
+                var Y = Math.trunc(map.layerPointToContainerPoint(e.layerPoint).y);
+    
+                var URL = 'http://localhost:8080/geoserver/proba/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS=proba:planet_osm_point3&QUERY_LAYERS=proba:planet_osm_point3&BBOX='+BBOX+'&FEATURE_COUNT=1&HEIGHT='+HEIGHT+'&WIDTH='+WIDTH+'&INFO_FORMAT=application%2Fjson&TILED=false&CRS=EPSG%3A3857&I='+X+'&J='+Y;
+
+                $.ajax({
+                   url: URL,
+                   dataType: "json",
+                   type: "GET",
+                   success: function(data)
+                   {
+                     if(data.features.length !== 0) {  // at least one feature returned in response
+                       var returnedFeature = data.features[0]; // first feature from response
+
+                       var popup = new L.Popup({
+                         maxWidth: 300
+                       });
+                       console.log(returnedFeature);
+                       var popupMsg = Object.entries(returnedFeature.properties)
+                                                .filter(([name, value]) => value !== null && name !== 'osm_id')
+                                                .map(([name, value]) => value)
+                                                .reduce(function (acc, val) {
+                                                    return acc + ' ' + val
+                                                    }, '');
+                        console.log(popupMsg);
+                       popup.setContent(popupMsg);
+                       popup.setLatLng(e.latlng);
+                       map.openPopup(popup);
+                    }
+                  }
+                 });
+               }   
+
+    map.on('click', onMapClick);
+
+    var basemaps = {
+		'Ulice i Lokacije': L.tileLayer.wms('http://localhost:8080/geoserver/proba/wms', {
+            layers: ['proba:planet_osm_line2','proba:planet_osm_point3'],
+            format: 'image/png',
+            transparent: true
+            }),
+
+        'Oblasti i Ulice': L.tileLayer.wms('http://localhost:8080/geoserver/proba/wms', {
+            layers: ['proba:planet_osm_polygon3','proba:planet_osm_line2'],
+            format: 'image/png',
+            transparent: true
+            }),
+
+		Ulice: L.tileLayer.wms('http://localhost:8080/geoserver/proba/wms', {
+            layers: 'proba:planet_osm_line2',
+            format: 'image/png',
+            transparent: true
+            }),
+
+		Lokacije: L.tileLayer.wms('http://localhost:8080/geoserver/proba/wms', {
+            layers: 'proba:planet_osm_point3',
+            format: 'image/png',
+            transparent: true
+            }),
+
+        Oblasti: L.tileLayer.wms('http://localhost:8080/geoserver/proba/wms', {
+            layers: 'proba:planet_osm_polygon3',
+            format: 'image/png',
+            transparent: true
+            }),
+	};
+
+  var layerControl = L.control.layers(basemaps, {}, {collapsed: false}).addTo(map);
+
+	basemaps.Topography.addTo(map);
+        
+    </script>
+</body>
+</html>
